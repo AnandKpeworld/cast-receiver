@@ -14,127 +14,27 @@
     html, body {
       width: 100%; height: 100%; margin: 0; padding: 0;
       background: #000; overflow: hidden;
-      font-family: -apple-system, "Helvetica Neue", Arial, sans-serif;
     }
-    /* CAF's media player (local video, IPTV, images, app logo) */
+    /* Plain black media surface — no logo, name, or status. */
     cast-media-player {
       position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      --background-color: #000;
+      --splash-image: none;
     }
-    /* YouTube IFrame overlay — shown only while a YouTube video is playing */
+    /* YouTube IFrame overlay — shown only while a YouTube video is playing. */
     #yt-layer {
       position: absolute; top: 0; left: 0; width: 100%; height: 100%;
       background: #000; display: none; z-index: 10;
     }
     #yt-player { width: 100%; height: 100%; border: 0; }
-
-    /* ---- Idle / status screen ------------------------------------------------
-       Shown whenever no real media is on screen: right after the app connects,
-       when nothing is selected yet, and when media stops / disconnects. */
-    #idle-layer {
-      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      /* App theme: dark base (#191919) with a soft blue glow (#4B8EFF) */
-      background: radial-gradient(circle at 50% 38%, rgba(75,142,255,.32) 0%, rgba(75,142,255,.10) 38%, #191919 72%);
-      background-color: #191919;
-      color: #fff; z-index: 8; text-align: center;
-      transition: opacity .4s ease; opacity: 1;
-    }
-    #idle-layer.hidden { opacity: 0; pointer-events: none; }
-
-    .idle-logo {
-      width: 19vw; max-width: 240px; min-width: 150px; height: auto;
-      filter: drop-shadow(0 10px 30px rgba(0,0,0,.45));
-    }
-    .idle-name {
-      margin-top: 3.2vh;
-      font-size: 3.4vw; font-weight: 700; letter-spacing: .5px;
-      text-shadow: 0 2px 8px rgba(0,0,0,.35);
-    }
-    .idle-status {
-      margin-top: 2.4vh;
-      display: inline-flex; align-items: center; gap: 1.1vw;
-      padding: 1.1vh 2.2vw; border-radius: 999px;
-      background: rgba(255,255,255,.10);
-      border: 1px solid rgba(255,255,255,.18);
-      font-size: 1.7vw; font-weight: 600;
-      backdrop-filter: blur(4px);
-    }
-    .idle-dot {
-      width: 1.25vw; height: 1.25vw; max-width: 18px; max-height: 18px;
-      min-width: 10px; min-height: 10px;
-      border-radius: 50%; background: #9aa3b2; flex: none;
-    }
-    /* Connected — solid green, gentle pulse */
-    #idle-layer[data-state="connected"] .idle-dot {
-      background: #34d27b; box-shadow: 0 0 0 0 rgba(52,210,123,.6);
-      animation: pulse 2s infinite;
-    }
-    /* Disconnected / stopped — amber, no pulse */
-    #idle-layer[data-state="disconnected"] .idle-dot { background: #f0a93b; }
-    .idle-sub {
-      margin-top: 2.6vh; font-size: 1.5vw; color: rgba(255,255,255,.72);
-      max-width: 70vw;
-    }
-    @keyframes pulse {
-      0%   { box-shadow: 0 0 0 0 rgba(52,210,123,.55); }
-      70%  { box-shadow: 0 0 0 1.4vw rgba(52,210,123,0); }
-      100% { box-shadow: 0 0 0 0 rgba(52,210,123,0); }
-    }
   </style>
 </head>
 <body>
-  <!-- Plays everything that arrives via loadMedia(): gallery videos, IPTV streams, photos, logo -->
+  <!-- Plays everything that arrives via loadMedia(): gallery videos, IPTV streams, photos -->
   <cast-media-player></cast-media-player>
 
   <!-- Plays YouTube via the real IFrame player (driven by the app's custom channel) -->
   <div id="yt-layer"><div id="yt-player"></div></div>
-
-  <!-- Idle / connection status screen: app logo + app name + live status -->
-  <div id="idle-layer" data-state="connected">
-    <!-- Inline-SVG recreation of the App Store icon: TV + phone with cast waves -->
-    <svg class="idle-logo" viewBox="0 0 220 220" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <defs>
-        <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stop-color="#ADC6FF"/>
-          <stop offset="1" stop-color="#4B8EFF"/>
-        </linearGradient>
-        <linearGradient id="screen" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stop-color="#2f63d6"/>
-          <stop offset="1" stop-color="#1c47b0"/>
-        </linearGradient>
-      </defs>
-      <!-- rounded app tile -->
-      <rect x="6" y="6" width="208" height="208" rx="48" fill="url(#bg)"/>
-      <!-- TV -->
-      <rect x="40" y="46" width="118" height="80" rx="12" fill="#0e1430" opacity="0.28"/>
-      <rect x="46" y="52" width="106" height="68" rx="9" fill="url(#screen)"/>
-      <rect x="86" y="126" width="26" height="9" rx="3" fill="#0e1430" opacity="0.30"/>
-      <rect x="74" y="134" width="50" height="7" rx="3.5" fill="#0e1430" opacity="0.30"/>
-      <!-- cast waves on TV -->
-      <g fill="none" stroke="#ffffff" stroke-linecap="round">
-        <path d="M70 104 a26 26 0 0 1 26 26" stroke-width="7"/>
-        <path d="M70 90 a40 40 0 0 1 40 40" stroke-width="7"/>
-        <circle cx="71" cy="129" r="5.5" fill="#ffffff" stroke="none"/>
-      </g>
-      <!-- phone -->
-      <rect x="120" y="92" width="56" height="92" rx="14" fill="#0e1430" opacity="0.32"/>
-      <rect x="125" y="97" width="46" height="82" rx="10" fill="url(#screen)"/>
-      <g fill="none" stroke="#ffffff" stroke-linecap="round">
-        <path d="M138 150 a13 13 0 0 1 13 13" stroke-width="4.5"/>
-        <path d="M138 139 a24 24 0 0 1 24 24" stroke-width="4.5"/>
-        <circle cx="138.5" cy="162.5" r="3.2" fill="#ffffff" stroke="none"/>
-      </g>
-    </svg>
-
-    <div class="idle-name">Screen Mirroring - CastConnect</div>
-
-    <div class="idle-status">
-      <span class="idle-dot"></span>
-      <span id="idle-status-text">Connected</span>
-    </div>
-
-    <div class="idle-sub" id="idle-sub">Ready to cast — select media on your phone</div>
-  </div>
 
   <script>
     // MUST match the iOS app's YoutubeChannel namespace exactly.
@@ -147,36 +47,12 @@
     let ytPlayer = null;     // the YouTube IFrame player instance
     let ytReady = false;     // YouTube IFrame API finished loading
     let pendingVideoId = null; // a play() that arrived before the API was ready
-    let mediaWasLoaded = false; // has any real media been loaded this session?
-
-    // ---- Idle / status screen helpers -----------------------------------------
-    const idleLayer = document.getElementById('idle-layer');
-    const idleStatusText = document.getElementById('idle-status-text');
-    const idleSub = document.getElementById('idle-sub');
-
-    // Render one of the status states on the idle screen.
-    //  'connected'    -> device linked, nothing playing (default after connect / no media selected)
-    //  'disconnected' -> media stopped / ended, or the device dropped
-    function setIdleStatus(state, title, sub) {
-      idleLayer.setAttribute('data-state', state);
-      idleStatusText.textContent = title;
-      idleSub.textContent = sub;
-    }
-
-    // Show the idle screen (used when no real media is on screen).
-    function showIdle() { idleLayer.classList.remove('hidden'); }
-    // Hide it (used the moment real media or YouTube takes over the screen).
-    function hideIdle() { idleLayer.classList.add('hidden'); }
 
     // ---- YouTube layer helpers -------------------------------------------------
-
-    function showYouTube() { hideIdle(); ytLayer.style.display = 'block'; }
+    function showYouTube() { ytLayer.style.display = 'block'; }
     function hideYouTube() {
       ytLayer.style.display = 'none';
       if (ytPlayer && ytPlayer.stopVideo) ytPlayer.stopVideo();
-      // Nothing is playing anymore -> fall back to the connected status screen.
-      setIdleStatus('connected', 'Connected', 'Ready to cast — select media on your phone');
-      showIdle();
     }
 
     // Called automatically by the IFrame API once it has loaded.
@@ -203,8 +79,8 @@
     }
 
     // ---- Custom channel: messages from the iOS app -----------------------------
-    // Payloads (see YoutubeChannel.swift): {action:"play",videoId}, {action:"pause"},
-    // {action:"resume"}, {action:"stop"}.
+    // Payloads: {action:"play",videoId}, {action:"pause"}, {action:"resume"},
+    // {action:"seek",seconds}, {action:"stop"}.
     context.addCustomMessageListener(YT_NAMESPACE, function (event) {
       const data = event.data || {};
       switch (data.action) {
@@ -232,61 +108,12 @@
       }
     });
 
-    // ---- CAF media: hide the status/YouTube layers whenever real media loads ---
-    // Any loadMedia() from the app (local video, IPTV, photo, logo) reclaims the screen.
+    // ---- CAF media: hide the YouTube layer whenever real media loads -----------
     playerManager.setMessageInterceptor(
       cast.framework.messages.MessageType.LOAD,
       function (loadRequest) {
-        mediaWasLoaded = true;
         hideYouTube();
-        hideIdle();
         return loadRequest;
-      }
-    );
-
-    // ---- Player state -> status screen -----------------------------------------
-    // When CAF media finishes, is stopped, or nothing is loaded, the player goes
-    // IDLE. That's our cue to show the "media disconnected / select media" status.
-    playerManager.addEventListener(
-      cast.framework.events.EventType.PLAYER_STATE_CHANGED,
-      function (event) {
-        const State = cast.framework.messages.PlayerState;
-        if (event.playerState === State.IDLE) {
-          // Don't cover an active YouTube video.
-          if (ytLayer.style.display === 'block') return;
-          if (mediaWasLoaded) {
-            // Real media just ended or was stopped.
-            setIdleStatus('disconnected', 'Media disconnected',
-                          'Select media on your phone to start casting');
-          } else {
-            // Nothing has been selected yet since connecting.
-            setIdleStatus('connected', 'Connected',
-                          'Ready to cast — select media on your phone');
-          }
-          showIdle();
-        } else if (event.playerState === State.PLAYING ||
-                   event.playerState === State.BUFFERING) {
-          hideIdle();
-        }
-      }
-    );
-
-    // ---- Device connection status ----------------------------------------------
-    context.addEventListener(
-      cast.framework.system.EventType.SENDER_CONNECTED,
-      function () {
-        if (ytLayer.style.display === 'block') return;
-        if (playerManager.getPlayerState &&
-            playerManager.getPlayerState() === cast.framework.messages.PlayerState.PLAYING) return;
-        setIdleStatus('connected', 'Connected', 'Ready to cast — select media on your phone');
-        showIdle();
-      }
-    );
-    context.addEventListener(
-      cast.framework.system.EventType.SENDER_DISCONNECTED,
-      function () {
-        setIdleStatus('disconnected', 'Device disconnected', 'Reconnect from the CastConnect app');
-        showIdle();
       }
     );
 
