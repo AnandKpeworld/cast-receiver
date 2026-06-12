@@ -1,0 +1,89 @@
+```<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>CastConnect Receiver</title>
+
+<!-- Cast CAF Receiver SDK -->
+<script src="//www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js"></script>
+<!-- YouTube Iframe API -->
+<script src="https://www.youtube.com/iframe_api"></script>
+
+<style>
+  html, body { margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:black; }
+  /* Standard media (local video / IPTV / photos) */
+  cast-media-player { position:absolute; inset:0; width:100%; height:100%; }
+  /* YouTube layer sits on top; hidden unless a YouTube video is playing */
+  #ytwrap { position:absolute; inset:0; display:none; background:black; }
+  #ytwrap.show { display:block; }
+  #player { width:100%; height:100%; }
+</style>
+</head>
+<body>
+
+<!-- 1) Standard media surface -->
+<cast-media-player></cast-media-player>
+
+<!-- 2) YouTube surface -->
+<div id="ytwrap"><div id="player"></div></div>
+
+<script>
+/* ---------- YouTube IFrame ---------- */
+let player = null;
+let ytReady = false;
+let pendingVideoId = null;
+
+function onYouTubeIframeAPIReady() {
+  ytReady = true;
+  if (pendingVideoId) { playYouTube(pendingVideoId); pendingVideoId = null; }
+}
+
+function showYT(show) {
+  document.getElementById('ytwrap').classList.toggle('show', show);
+}
+
+function playYouTube(videoId) {
+  showYT(true);
+  if (!ytReady) { pendingVideoId = videoId; return; }
+  if (player && player.loadVideoById) { player.loadVideoById(videoId); return; }
+  player = new YT.Player('player', {
+    width: '100%', height: '100%', videoId: videoId,
+    playerVars: { autoplay: 1, controls: 1, rel: 0, fs: 1 },
+    events: { onReady: e => e.target.playVideo() }
+  });
+}
+function pauseYouTube()  { if (player) try { player.pauseVideo(); } catch(e){} }
+function resumeYouTube() { if (player) try { player.playVideo();  } catch(e){} }
+function stopYouTube()   { if (player) try { player.stopVideo();  } catch(e){} showYT(false); }
+
+/* ---------- CAF receiver ---------- */
+const context = cast.framework.CastReceiverContext.getInstance();
+const playerManager = context.getPlayerManager();
+
+// When standard media (local/IPTV/photo) starts loading, hide the YouTube layer
+playerManager.addEventListener(
+  cast.framework.events.EventType.PLAYER_LOADING,
+  () => stopYouTube()
+);
+
+// YouTube control channel — namespace MUST match the iOS sender exactly
+context.addCustomMessageListener(
+  "urn:x-cast:zb.ScreenMirroring.CastifyTV.youtube", 
+  (event) => {
+    const data = event.data || {};
+    switch (data.action) {
+      case "play":   if (data.videoId) playYouTube(data.videoId); break;
+      case "pause":  pauseYouTube();  break;
+      case "resume": resumeYouTube(); break;
+      case "stop":   stopYouTube();   break;
+      default:       if (data.videoId) playYouTube(data.videoId);
+    }
+  }
+);
+
+context.start();
+console.log("Cast Receiver Started (media + YouTube)");
+</script>
+
+</body>
+</html> ```
