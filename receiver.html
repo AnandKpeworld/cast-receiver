@@ -1,132 +1,188 @@
 <!DOCTYPE html>
 <html>
+
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-  <title>CastConnect Receiver</title>
+<meta charset="UTF-8">
+<title>YouTube Cast Receiver</title>
 
-  <!-- Google Cast Application Framework (CAF) receiver -->
-  <script src="//www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js"></script>
-  <!-- YouTube IFrame Player API -->
-  <script src="https://www.youtube.com/iframe_api"></script>
+<!-- Cast CAF Receiver SDK -->
+<script src="//www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js"></script>
 
-  <style>
-    html, body {
-      width: 100%; height: 100%; margin: 0; padding: 0;
-      background: #000; overflow: hidden;
-    }
-    /* Plain black media surface — no logo, name, or status. */
-    cast-media-player {
-      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-      --background-color: #000;
-      --splash-image: none;
-    }
-    /* YouTube IFrame overlay — shown only while a YouTube video is playing. */
-    #yt-layer {
-      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-      background: #000; display: none; z-index: 10;
-    }
-    #yt-player { width: 100%; height: 100%; border: 0; }
-  </style>
+<!-- YouTube Iframe API -->
+<script src="https://www.youtube.com/iframe_api"></script>
+
+<style>
+html,
+body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: black;
+}
+
+#player {
+    width: 100%;
+    height: 100%;
+}
+</style>
 </head>
+
 <body>
-  <!-- Plays everything that arrives via loadMedia(): gallery videos, IPTV streams, photos -->
-  <cast-media-player></cast-media-player>
 
-  <!-- Plays YouTube via the real IFrame player (driven by the app's custom channel) -->
-  <div id="yt-layer"><div id="yt-player"></div></div>
+<div id="player"></div>
 
-  <script>
-    // MUST match the iOS app's YoutubeChannel namespace exactly.
-    const YT_NAMESPACE = 'urn:x-cast:zb.ScreenMirroring.CastifyTV.youtube';
+<script>
 
-    const context = cast.framework.CastReceiverContext.getInstance();
-    const playerManager = context.getPlayerManager();
+let player = null;
+let pendingVideoId = null;
 
-    const ytLayer = document.getElementById('yt-layer');
-    let ytPlayer = null;     // the YouTube IFrame player instance
-    let ytReady = false;     // YouTube IFrame API finished loading
-    let pendingVideoId = null; // a play() that arrived before the API was ready
+// Called automatically by YouTube API
+function onYouTubeIframeAPIReady() {
 
-    // ---- YouTube layer helpers -------------------------------------------------
-    function showYouTube() { ytLayer.style.display = 'block'; }
-    function hideYouTube() {
-      ytLayer.style.display = 'none';
-      if (ytPlayer && ytPlayer.stopVideo) ytPlayer.stopVideo();
-    }
+    console.log("YouTube API Ready");
 
-    // Called automatically by the IFrame API once it has loaded.
-    window.onYouTubeIframeAPIReady = function () {
-      ytPlayer = new YT.Player('yt-player', {
-        width: '100%', height: '100%',
-        playerVars: { autoplay: 1, controls: 0, rel: 0, fs: 0, playsinline: 1, modestbranding: 1 },
+    player = new YT.Player("player", {
+        width: "100%",
+        height: "100%",
+        videoId: "",
+        playerVars: {
+            autoplay: 1,
+            controls: 1,
+            rel: 0,
+            fs: 1
+        },
         events: {
-          onReady: function () {
-            ytReady = true;
-            if (pendingVideoId) { playYouTube(pendingVideoId); pendingVideoId = null; }
-          }
+            onReady: function () {
+
+                console.log("Player Ready");
+
+                if (pendingVideoId) {
+                    player.loadVideoById(pendingVideoId);
+                }
+            }
         }
-      });
-    };
-
-    function playYouTube(videoId) {
-      // A YouTube request takes over the screen: stop any CAF media first.
-      try { playerManager.stop(); } catch (e) {}
-      showYouTube();
-      if (!ytReady || !ytPlayer) { pendingVideoId = videoId; return; }
-      ytPlayer.loadVideoById(videoId);
-      ytPlayer.playVideo();
-    }
-
-    // ---- Custom channel: messages from the iOS app -----------------------------
-    // Payloads: {action:"play",videoId}, {action:"pause"}, {action:"resume"},
-    // {action:"seek",seconds}, {action:"stop"}.
-    context.addCustomMessageListener(YT_NAMESPACE, function (event) {
-      const data = event.data || {};
-      switch (data.action) {
-        case 'play':
-          if (data.videoId) playYouTube(data.videoId);
-          break;
-        case 'pause':
-          if (ytPlayer && ytPlayer.pauseVideo) ytPlayer.pauseVideo();
-          break;
-        case 'resume':
-          if (ytPlayer && ytPlayer.playVideo) ytPlayer.playVideo();
-          break;
-        case 'seek':
-          if (ytPlayer && ytPlayer.seekTo && ytPlayer.getCurrentTime) {
-            var target = ytPlayer.getCurrentTime() + (Number(data.seconds) || 0);
-            if (target < 0) target = 0;
-            ytPlayer.seekTo(target, true);
-          }
-          break;
-        case 'stop':
-          hideYouTube();
-          break;
-        default:
-          break;
-      }
     });
+}
 
-    // ---- CAF media: hide the YouTube layer whenever real media loads -----------
-    playerManager.setMessageInterceptor(
-      cast.framework.messages.MessageType.LOAD,
-      function (loadRequest) {
-        hideYouTube();
-        return loadRequest;
-      }
+// Cast Receiver Context
+const context =
+    cast.framework.CastReceiverContext.getInstance();
+
+// Custom Namespace
+const bus =
+    context.getCustomMessageBus(
+        "zb.ScreenMirroring.CastifyTV.youtube"
     );
 
-    // ---- Start the receiver ----------------------------------------------------
-    const options = new cast.framework.CastReceiverOptions();
-    // Keep the receiver alive when idle so the app can switch between YouTube and
-    // local media without the session dropping.
-    options.disableIdleTimeout = true;
-    // Advertise our custom namespace so the SDK routes the app's messages here.
-    options.customNamespaces = {};
-    options.customNamespaces[YT_NAMESPACE] = cast.framework.system.MessageType.JSON;
-//testing by devlopers
-    context.start(options);
-  </script>
+// Receive Messages
+bus.onMessage = function(event) {
+
+    console.log("Received:", event.data);
+
+    let data;
+
+    try {
+        data = JSON.parse(event.data);
+    } catch (e) {
+        console.error("Invalid JSON:", e);
+        return;
+    }
+
+    switch(data.action) {
+
+        case "play":
+
+            if(player && player.loadVideoById) {
+                player.loadVideoById(data.videoId);
+            } else {
+                pendingVideoId = data.videoId;
+            }
+
+            break;
+
+        case "pause":
+
+            if(player) {
+                player.pauseVideo();
+            }
+
+            break;
+
+        case "resume":
+
+            if(player) {
+                player.playVideo();
+            }
+
+            break;
+
+        case "stop":
+
+            if(player) {
+                player.stopVideo();
+            }
+
+            break;
+
+        case "forward10":
+
+            if(player && player.getCurrentTime) {
+
+                let currentTime =
+                    player.getCurrentTime();
+
+                let duration =
+                    player.getDuration();
+
+                let newTime =
+                    currentTime + 10;
+
+                if(newTime > duration) {
+                    newTime = duration;
+                }
+
+                player.seekTo(newTime, true);
+            }
+
+            break;
+
+        case "back10":
+
+            if(player && player.getCurrentTime) {
+
+                let currentTime =
+                    player.getCurrentTime();
+
+                let newTime =
+                    currentTime - 10;
+
+                if(newTime < 0) {
+                    newTime = 0;
+                }
+
+                player.seekTo(newTime, true);
+            }
+
+            break;
+
+        case "seek":
+
+            if(player && typeof data.position === "number") {
+                player.seekTo(data.position, true);
+            }
+
+            break;
+    }
+};
+// Update by Dev Ami
+// Start Cast Receiver
+context.start();
+
+console.log("Cast Receiver Started");
+
+</script>
+
 </body>
 </html>
