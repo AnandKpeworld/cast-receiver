@@ -7,8 +7,6 @@
 
   <!-- Google Cast Application Framework (CAF) receiver -->
   <script src="//www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js"></script>
-  <!-- YouTube IFrame Player API -->
-  <script src="https://www.youtube.com/iframe_api"></script>
 
   <style>
     /* Transparent ("clear") idle background, per request — nothing shows on the TV
@@ -23,117 +21,23 @@
       --background-color: transparent;
       --splash-image: none;
     }
-    /* YouTube IFrame overlay — shown only while a YouTube video is playing.
-       Black backing here is intentional so video letterboxing looks right. */
-    #yt-layer {
-      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-      background: #000; display: none; z-index: 10;
-    }
-    #yt-player { width: 100%; height: 100%; border: 0; }
   </style>
 </head>
 <body>
-  <!-- Plays everything that arrives via loadMedia(): gallery videos, IPTV streams, photos -->
+  <!-- Plays everything that arrives via loadMedia(): gallery videos, IPTV streams, photos.
+       YouTube is intentionally NOT handled here — it is played on the TV's own YouTube app
+       via DIAL from the iOS app, so YouTube's native player and playbar are used, per the
+       YouTube API Terms of Service. -->
   <cast-media-player></cast-media-player>
 
-  <!-- Plays YouTube via the real IFrame player (driven by the app's custom channel) -->
-  <div id="yt-layer"><div id="yt-player"></div></div>
-
   <script>
-    // MUST match the iOS app's YoutubeChannel namespace exactly (incl. the urn:x-cast: prefix).
-    const YT_NAMESPACE = 'urn:x-cast:zb.ScreenMirroring.CastifyTV.youtube';
-
     const context = cast.framework.CastReceiverContext.getInstance();
-    const playerManager = context.getPlayerManager();
-
-    const ytLayer = document.getElementById('yt-layer');
-    let ytPlayer = null;     // the YouTube IFrame player instance
-    let ytReady = false;     // YouTube IFrame API finished loading
-    let pendingVideoId = null; // a play() that arrived before the API was ready
-
-    // ---- YouTube layer helpers -------------------------------------------------
-    function showYouTube() { ytLayer.style.display = 'block'; }
-    function hideYouTube() {
-      ytLayer.style.display = 'none';
-      if (ytPlayer && ytPlayer.stopVideo) ytPlayer.stopVideo();
-    }
-
-    // Called automatically by the IFrame API once it has loaded.
-    window.onYouTubeIframeAPIReady = function () {
-      ytPlayer = new YT.Player('yt-player', {
-        width: '100%', height: '100%',
-        playerVars: { autoplay: 1, controls: 0, rel: 0, fs: 0, playsinline: 1, modestbranding: 1 },
-        events: {
-          onReady: function () {
-            ytReady = true;
-            if (pendingVideoId) { playYouTube(pendingVideoId); pendingVideoId = null; }
-          }
-        }
-      });
-    };
-
-    function playYouTube(videoId) {
-      // A YouTube request takes over the screen: stop any CAF media first.
-      try { playerManager.stop(); } catch (e) {}
-      showYouTube();
-      if (!ytReady || !ytPlayer) { pendingVideoId = videoId; return; }
-      ytPlayer.loadVideoById(videoId);
-      ytPlayer.playVideo();
-    }
-
-    // ---- Custom channel: messages from the iOS app -----------------------------
-    // Payloads: {action:"play",videoId}, {action:"pause"}, {action:"resume"},
-    // {action:"seek",seconds}, {action:"stop"}.
-    // NOTE: addCustomMessageListener is the correct CAF v3 API. getCustomMessageBus
-    // does NOT exist in CAF v3 and crashes the receiver -> "Disconnected from receiver".
-    context.addCustomMessageListener(YT_NAMESPACE, function (event) {
-      // event.data may arrive as an object (JSON namespace) or a JSON string — handle both.
-      let data = event.data || {};
-      if (typeof data === 'string') {
-        try { data = JSON.parse(data); } catch (e) { data = {}; }
-      }
-      switch (data.action) {
-        case 'play':
-          if (data.videoId) playYouTube(data.videoId);
-          break;
-        case 'pause':
-          if (ytPlayer && ytPlayer.pauseVideo) ytPlayer.pauseVideo();
-          break;
-        case 'resume':
-          if (ytPlayer && ytPlayer.playVideo) ytPlayer.playVideo();
-          break;
-        case 'seek':
-          if (ytPlayer && ytPlayer.seekTo && ytPlayer.getCurrentTime) {
-            var target = ytPlayer.getCurrentTime() + (Number(data.seconds) || 0);
-            if (target < 0) target = 0;
-            ytPlayer.seekTo(target, true);
-          }
-          break;
-        case 'stop':
-          hideYouTube();
-          break;
-        default:
-          break;
-      }
-    });
-
-    // ---- CAF media: hide the YouTube layer whenever real media loads -----------
-    playerManager.setMessageInterceptor(
-      cast.framework.messages.MessageType.LOAD,
-      function (loadRequest) {
-        hideYouTube();
-        return loadRequest;
-      }
-    );
 
     // ---- Start the receiver ----------------------------------------------------
     const options = new cast.framework.CastReceiverOptions();
-    // Keep the receiver alive when idle so the app can switch between YouTube and
-    // local media without the session dropping.
+    // Keep the receiver alive when idle so the app can switch between media items
+    // without the session dropping.
     options.disableIdleTimeout = true;
-    // Advertise our custom namespace so the SDK routes the app's messages here.
-    options.customNamespaces = {};
-    options.customNamespaces[YT_NAMESPACE] = cast.framework.system.MessageType.JSON;
 
     context.start(options);
   </script>
